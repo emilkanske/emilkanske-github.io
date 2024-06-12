@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="../js/pocketbase.umd.js"></script>
+</head>
+<body class="overflow-x-hidden">
+    <div x-data="main" class="flex flex-col gap-5">
+        <!-- Top bar -->
+        <div class="w-screen h-12 bg-blue-500 px-5 flex justify-between items-center">
+            <p x-text="isLoggedIn ? 'Settings' : 'Auth'" class="text-white font-semibold text-xl"></p>
+            <p class="text-white text-sm">Made by @emi.l</p>
+        </div>
+        <!-- Login div -->
+        <div x-show="!isLoggedIn" class="px-5 flex flex-col gap-3">
+            <div x-show="notRegister" class="flex flex-col justify-center items-start gap-2">
+                <p class="text-lg font-semibold">Login</p>
+                <span class="w-full border-b-2"></span>
+                <div class="flex flex-col gap-3 items-start">
+                    <input type="text" placeholder="Username" x-model="username_input" class="border-2 rounded-sm border-green-500 px-2 outline-none focus:border-blue-500 transition">
+                    <input type="password" placeholder="Password" x-model="password_input" class="border-2 rounded-sm border-green-500 px-2 outline-none focus:border-blue-500 transition">
+                    <button x-on:click="login" class="bg-green-500 px-5 py-1 rounded-sm text-white font-semibold hover:bg-green-600 transition">Login!</button>
+                </div>
+            </div>
+            <div x-show="!notRegister" class="flex flex-col justify-center items-start gap-2">
+                <p class="text-lg font-semibold">Register</p>
+                <span class="w-full border-b-2"></span>
+                <div class="flex flex-col gap-3 items-start">
+                    <input type="text" placeholder="Username" x-model="username_input" class="border-2 rounded-sm border-green-500 px-2 outline-none focus:border-blue-500 transition">
+                    <input type="password" placeholder="Password" x-model="password_input" class="border-2 rounded-sm border-green-500 px-2 outline-none focus:border-blue-500 transition">
+                    <input type="text" placeholder="Minecraft username" x-model="minecraft_input" class="border-2 rounded-sm border-green-500 px-2 outline-none focus:border-blue-500 transition">
+                    <button x-on:click="register" class="bg-green-500 px-5 py-1 rounded-sm text-white font-semibold hover:bg-green-600 transition">Register!</button>
+                </div>
+            </div>
+            <span class="w-full border-b-2"></span>
+            <p x-on:click="notRegister = !notRegister" class="text-center text-sm text-blue-500 underline" x-text="notRegister ? 'Dont have an account? Click here to register!' : 'Already have an account? Click here to login!'"></p>
+        </div>
+        <!-- Settings div -->
+         <div x-show="isLoggedIn" class="px-5 flex flex-col gap-5">
+            <div class="w-full flex flex-row justify-between items-center">
+                <div>
+                    <p>Welcome back to capes!😊</p>
+                    <p x-text="'Mc username ' + pb.authStore.model.minecraft_name"></p>
+                </div>
+                <div class="flex flex-row gap-2 items-center">
+                    <p x-text="'@' + pb.authStore.model.username" class="font-semibold">@Username</p>
+                    <button x-on:click="logout" class="bg-red-500 px-3 py-1 rounded-sm text-white font-semibold">Logout</button>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-5">
+                <div class="flex flex-col gap-2">
+                    <p class="text-lg">Upload new cape</p>
+                    <span class="w-full border-b-2"></span>
+                    <form enctype="multipart/form-data" class="flex flex-col items-start justify-center gap-2">
+                        <input type="file" id="fileInput" accept=".png" x-on:change="updateImage">
+                        <img :src="cape_preview">
+                        <button x-on:click="uploadFile" class="bg-green-500 px-4 py-1 rounded-sm text-white font-semibold">Upload!</button>
+                    </form>
+                </div>
+                <div class="flex flex-col gap-2">
+                    <p class="text-lg">Current cape</p>
+                    <span class="w-full border-b-2"></span>
+                    <img :src="current_cape" alt="current_cape" class="w-20">
+                </div>
+            </div>
+         </div>
+    </div>
+
+
+    <script>
+        document.addEventListener("alpine:init", ()=> {
+            Alpine.data("main", ()=> ({
+                pb: null,
+                isLoggedIn: false,
+                notRegister: true,
+                
+                current_cape: null,
+                cape_preview: null,
+
+                username_input: "",
+                password_input: "",
+                minecraft_input: "",
+
+                init(){
+                    this.pb = new PocketBase("https://capes.pockethost.io/")
+                    this.isLoggedIn = this.pb.authStore.isValid
+                    setInterval(()=>{
+                        if (this.pb.authStore.isValid) {
+                            if (this.isLoggedIn != this.pb.authStore.isValid) {
+                                this.isLoggedIn = this.pb.authStore.isValid
+                            }
+                            this.current_cape = `https://capes.pockethost.io/api/files/${this.pb.authStore.model.collectionId}/${this.pb.authStore.model.id}/${this.pb.authStore.model.current_cape}`
+                        }
+
+                    }, 100)
+                },
+
+                async login(){
+                    await this.pb.collection("users").authWithPassword(
+                        this.username_input,
+                        this.password_input
+                    )
+                    window.location.reload()
+                },
+
+                async register(){
+                    const data = {
+                        "username": this.username_input,
+                        "password": this.password_input,
+                        "passwordConfirm": this.password_input,
+                        "minecraft_name": this.minecraft_input
+                    };
+                    await this.pb.collection("users").create(data)
+                    this.login()
+                },
+
+                logout(){
+                    this.pb.authStore.clear()
+                    window.location.reload()
+                },
+
+                async uploadFile(e){
+                    e.preventDefault()
+                    let fd = new FormData()
+                    fd.append("current_cape", document.getElementById("fileInput").files[0])
+                    const record = await this.pb.collection("users").update(this.pb.authStore.model.id, fd);
+                },
+
+                updateImage(e){
+                    this.cape_preview = URL.createObjectURL(e.target.files[0]);
+                }
+            }))
+        })
+    </script>
+</body>
+</html>
